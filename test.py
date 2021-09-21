@@ -557,7 +557,7 @@ if ckpt_manager.latest_checkpoint:
 
     # 用來確認之前訓練多少 epochs 了
     last_epoch = int(ckpt_manager.latest_checkpoint.split("-")[-1])
-    print(f'已讀取最新的 checkpoint，模型已訓練 {last_epoch} epochs。')
+    print(f'已讀取最新的 checkpoint，模型已訓練 {last_epoch*5} epochs。')
 else:
     last_epoch = 0
     print("沒找到 checkpoint，從頭訓練。")
@@ -600,10 +600,11 @@ def train_step(inp, tar):
 
 
 # 用來寫資訊到 TensorBoard，非必要但十分推薦
-summary_writer = tf.summary.create_file_writer(log_dir)
-EPOCHS = 3
+# summary_writer = tf.summary.create_file_writer(log_dir)
+EPOCHS = 50
 plt_loss = []  # 用來儲存每次EPOCH的loss用來畫圖
 plt_accuracy = []  # 用來儲存每次EPOCH的accuracy用來畫圖
+start_start=time.time()
 for epoch in range(EPOCHS):
     start = time.time()
 
@@ -626,151 +627,151 @@ for epoch in range(EPOCHS):
         ckpt_save_path = ckpt_manager.save()
         print('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
-        # 將 loss 以及 accuracy 寫到 TensorBoard 上
-    with summary_writer.as_default():
-        tf.summary.scalar("train_loss", train_loss.result(), step=epoch + 1)
-        tf.summary.scalar("train_acc", train_accuracy.result(), step=epoch + 1)
+    # # 將 loss 以及 accuracy 寫到 TensorBoard 上
+    # with summary_writer.as_default():
+    #     tf.summary.scalar("train_loss", train_loss.result(), step=epoch + 1)
+    #     tf.summary.scalar("train_acc", train_accuracy.result(), step=epoch + 1)
+
     plt_loss.append(train_loss.result())
     plt_accuracy.append(train_accuracy.result())
     print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, train_loss.result(), train_accuracy.result()))
     print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
+print(plt_loss)
+print(plt_accuracy)
+
+# print("Total time: ",(time.time()-start_start))
 
 
 EPOCH=np.arange(1, EPOCHS+1, 1)
-print(plt_loss)
-print(plt_accuracy)
 plt.plot(EPOCH,plt_loss) # (x, y)
 plt.xlabel("epochs",fontsize=20)
 plt.ylabel("loss",fontsize=20)
-plt.savefig("loss.png")
+plt.savefig("Transformer_loss.png")
+plt.close()
 
 plt.plot(EPOCH,plt_accuracy) # (x, y)
 plt.xlabel("epochs",fontsize=20)
 plt.ylabel("acurracy",fontsize=20)
-plt.savefig("acurracy.png")
+plt.savefig("Transformer_acurracy.png")
+plt.close()
+# ## 給定一個英文句子，輸出預測的中文索引數字序列以及注意權重 dict
+# def evaluate(inp_sentence):
+#   # 準備英文句子前後會加上的 <start>, <end>
+#   start_token = [tokenizer_en.vocab_size]
+#   end_token = [tokenizer_en.vocab_size + 1]
+#
+#   # inp_sentence 是字串，我們用 Subword Tokenizer 將其變成子詞的索引序列
+#   # 並在前後加上 BOS / EOS
+#   inp_sentence = start_token + tokenizer_en.encode(inp_sentence) + end_token
+#   encoder_input = tf.expand_dims(inp_sentence, 0)
+#
+#   # Decoder 在第一個時間點吃進去的輸入
+#   # 是一個只包含一個中文 <start> token 的序列
+#   decoder_input = [tokenizer_zh.vocab_size]
+#   output = tf.expand_dims(decoder_input, 0) # 增加 batch 維度
+#
+#   # auto-regressive，一次生成一個中文字並將預測加到輸入再度餵進 Transformer
+#   for i in range(MAX_LENGTH):
+#     # 每多一個生成的字就得產生新的遮罩
+#     enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
+#
+#     # predictions.shape == (batch_size, seq_len, vocab_size)
+#     predictions, attention_weights = transformer(encoder_input,
+#                                                  output,
+#                                                  False,
+#                                                  enc_padding_mask,
+#                                                  combined_mask,
+#                                                  dec_padding_mask)
+#
+#     # 將序列中最後一個 distribution 取出，並將裡頭值最大的當作模型最新的預測字
+#     predictions = predictions[: ,-1:, :]  # (batch_size, 1, vocab_size)
+#
+#     predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
+#
+#     # 如果 predicted_id 等于结束标记，就返回结果
+#     if predicted_id == tokenizer_zh.vocab_size+1:
+#       return tf.squeeze(output, axis=0), attention_weights
+#
+#     # 將 Transformer 新預測的中文索引加到輸出序列中，讓 Decoder 可以在產生
+#     # 下個中文字的時候關注到最新的 `predicted_id`
+#     output = tf.concat([output, predicted_id], axis=-1)
+#   # 將 batch 的維度去掉後回傳預測的中文索引序列
+#   return tf.squeeze(output, axis=0), attention_weights
+#
+# #view attention
+# # 這個函式將英 -> 中翻譯的注意權重視覺化（注意：我們將注意權重 transpose 以最佳化渲染結果
+# zhfont = mpl.font_manager.FontProperties(fname='chinese.simhei.ttf')
+# plt.style.use("seaborn-whitegrid")
+# def plot_attention_weights(attention_weights, sentence, predicted_seq, layer_name,max_len_tar=None):
+#   fig = plt.figure(figsize=(17, 7))
+#
+#   sentence = tokenizer_en.encode(sentence)
+#   # 只顯示中文序列前 `max_len_tar` 個字以避免畫面太過壅擠
+#   if max_len_tar:
+#     predicted_seq = predicted_seq[:max_len_tar]
+#   else:
+#     max_len_tar = len(predicted_seq)
+#
+#   # 將某一個特定 Decoder layer 裡頭的 MHA 1 或 MHA2 的注意權重拿出來並去掉 batch 維度
+#   attention_weights = tf.squeeze(attention_weights[layer_name], axis=0)
+#
+#   # 將每個 head 的注意權重畫出
+#   for head in range(attention_weights.shape[0]):
+#     ax = fig.add_subplot(2, 4, head+1)
+#
+#     # 画出注意力权重
+#     # [注意]我為了將長度不短的英文子詞顯示在 y 軸，將注意權重做了 transpose
+#     attn_map = np.transpose(attention_weights[head][:max_len_tar, :])
+#     ax.matshow(attn_map, cmap='viridis')  # (inp_seq_len, tar_seq_len)
+#     # ax.matshow(attention[head][:-1, :], cmap='viridis')
+#
+#     fontdict = {"fontproperties": zhfont}
+#
+#     ax.set_xticks(range(max(max_len_tar, len(predicted_seq))))
+#     ax.set_xlim(-0.5, max_len_tar -1.5)
+#
+#
+#     ax.set_yticks(range(len(sentence) + 2))
+#     ax.set_xticklabels([tokenizer_zh.decode([i]) for i in predicted_seq
+#                         if i < tokenizer_zh.vocab_size],
+#                        fontdict=fontdict, fontsize=18)
+#     ax.set_yticklabels(
+#         ['<start>']+[tokenizer_en.decode([i]) for i in sentence]+['<end>'],
+#                        fontdict=fontdict)
+#
+#
+#     ax.set_xlabel('Head {}'.format(head+1))
+#     ax.tick_params(axis="x", labelsize=12)
+#     ax.tick_params(axis="y", labelsize=12)
+#
+#   plt.tight_layout()
+#   # plt.savefig("Multi_Head_Attention_8")
+#   plt.show()
+#   plt.close(fig)
 
-## 給定一個英文句子，輸出預測的中文索引數字序列以及注意權重 dict
-def evaluate(inp_sentence):
-  # 準備英文句子前後會加上的 <start>, <end>
-  start_token = [tokenizer_en.vocab_size]
-  end_token = [tokenizer_en.vocab_size + 1]
-
-  # inp_sentence 是字串，我們用 Subword Tokenizer 將其變成子詞的索引序列
-  # 並在前後加上 BOS / EOS
-  inp_sentence = start_token + tokenizer_en.encode(inp_sentence) + end_token
-  encoder_input = tf.expand_dims(inp_sentence, 0)
-
-  # Decoder 在第一個時間點吃進去的輸入
-  # 是一個只包含一個中文 <start> token 的序列
-  decoder_input = [tokenizer_zh.vocab_size]
-  output = tf.expand_dims(decoder_input, 0) # 增加 batch 維度
-
-  # auto-regressive，一次生成一個中文字並將預測加到輸入再度餵進 Transformer
-  for i in range(MAX_LENGTH):
-    # 每多一個生成的字就得產生新的遮罩
-    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
-
-    # predictions.shape == (batch_size, seq_len, vocab_size)
-    predictions, attention_weights = transformer(encoder_input,
-                                                 output,
-                                                 False,
-                                                 enc_padding_mask,
-                                                 combined_mask,
-                                                 dec_padding_mask)
-
-    # 將序列中最後一個 distribution 取出，並將裡頭值最大的當作模型最新的預測字
-    predictions = predictions[: ,-1:, :]  # (batch_size, 1, vocab_size)
-
-    predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
-
-    # 如果 predicted_id 等于结束标记，就返回结果
-    if predicted_id == tokenizer_zh.vocab_size+1:
-      return tf.squeeze(output, axis=0), attention_weights
-
-    # 將 Transformer 新預測的中文索引加到輸出序列中，讓 Decoder 可以在產生
-    # 下個中文字的時候關注到最新的 `predicted_id`
-    output = tf.concat([output, predicted_id], axis=-1)
-  # 將 batch 的維度去掉後回傳預測的中文索引序列
-  return tf.squeeze(output, axis=0), attention_weights
-
-#view attention
-# 這個函式將英 -> 中翻譯的注意權重視覺化（注意：我們將注意權重 transpose 以最佳化渲染結果
-zhfont = mpl.font_manager.FontProperties(fname='chinese.simhei.ttf')
-plt.style.use("seaborn-whitegrid")
-def plot_attention_weights(attention_weights, sentence, predicted_seq, layer_name,max_len_tar=None):
-  fig = plt.figure(figsize=(17, 7))
-
-  sentence = tokenizer_en.encode(sentence)
-  # 只顯示中文序列前 `max_len_tar` 個字以避免畫面太過壅擠
-  if max_len_tar:
-    predicted_seq = predicted_seq[:max_len_tar]
-  else:
-    max_len_tar = len(predicted_seq)
-
-  # 將某一個特定 Decoder layer 裡頭的 MHA 1 或 MHA2 的注意權重拿出來並去掉 batch 維度
-  attention_weights = tf.squeeze(attention_weights[layer_name], axis=0)
-
-  # 將每個 head 的注意權重畫出
-  for head in range(attention_weights.shape[0]):
-    ax = fig.add_subplot(2, 4, head+1)
-
-    # 画出注意力权重
-    # [注意]我為了將長度不短的英文子詞顯示在 y 軸，將注意權重做了 transpose
-    attn_map = np.transpose(attention_weights[head][:max_len_tar, :])
-    ax.matshow(attn_map, cmap='viridis')  # (inp_seq_len, tar_seq_len)
-    # ax.matshow(attention[head][:-1, :], cmap='viridis')
-
-    fontdict = {"fontproperties": zhfont}
-
-    ax.set_xticks(range(max(max_len_tar, len(predicted_seq))))
-    ax.set_xlim(-0.5, max_len_tar -1.5)
 
 
-    ax.set_yticks(range(len(sentence) + 2))
-    ax.set_xticklabels([tokenizer_zh.decode([i]) for i in predicted_seq
-                        if i < tokenizer_zh.vocab_size],
-                       fontdict=fontdict, fontsize=18)
-    ax.set_yticklabels(
-        ['<start>']+[tokenizer_en.decode([i]) for i in sentence]+['<end>'],
-                       fontdict=fontdict)
-
-
-    ax.set_xlabel('Head {}'.format(head+1))
-    ax.tick_params(axis="x", labelsize=12)
-    ax.tick_params(axis="y", labelsize=12)
-
-  plt.tight_layout()
-  plt.savefig("Multi_Head_Attention_8")
-
-
-
-sentence = "China, India, and others have enjoyed continuing economic growth."
-# 取得預測的中文索引序列
-predicted_index, attention_weights = evaluate(sentence)
-
-# 過濾掉 <start> & <end> tokens 並用中文的 subword tokenizer 幫我們將索引序列還原回中文句子
-target_vocab_size = tokenizer_zh.vocab_size
-predicted_seq_without_bos_eos = [idx for idx in predicted_index if idx < target_vocab_size]
-predicted_sentence = tokenizer_zh.decode(predicted_seq_without_bos_eos)
-
-print()
-print("要翻譯的句子是:", sentence)
-print("-" * 20)
+# sentence = "China, India, and others have enjoyed continuing economic growth."
+# # 取得預測的中文索引序列
+# predicted_index, attention_weights = evaluate(sentence)
+#
+# # 過濾掉 <start> & <end> tokens 並用中文的 subword tokenizer 幫我們將索引序列還原回中文句子
+# target_vocab_size = tokenizer_zh.vocab_size
+# predicted_seq_without_bos_eos = [idx for idx in predicted_index if idx < target_vocab_size]
+# predicted_sentence = tokenizer_zh.decode(predicted_seq_without_bos_eos)
+#
+# layer_name = f"decoder_layer{num_layers}_block2"
+# print("sentence:", sentence)
+# print("-" * 20)
 # print("predicted_index:", predicted_index)
-print("-" * 20)
-print("翻譯結果為:", predicted_sentence)
-
-layer_name = f"decoder_layer{num_layers}_block2"
-
-print("sentence:", sentence)
-print("-" * 20)
-print("predicted_index:", predicted_index)
-print("-" * 20)
-print("attention_weights.keys():")
-for layer_name, attn in attention_weights.items():
-  print(f"{layer_name}.shape: {attn.shape}")
-print("-" * 20)
-print("layer_name:", layer_name)
-plot_attention_weights(attention_weights, sentence, predicted_index, layer_name, max_len_tar=18)
-
+# print("-" * 20)
+# print("predicted_sentence: ",predicted_sentence)
+# print("attention_weights.keys():")
+# for layer_name, attn in attention_weights.items():
+#   print(f"{layer_name}.shape: {attn.shape}")
+# print("-" * 20)
+# print("layer_name:", layer_name)
+# plot_attention_weights(attention_weights, sentence, predicted_index, layer_name, max_len_tar=18)
+# transformer.summary()
+#
