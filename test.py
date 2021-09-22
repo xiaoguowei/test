@@ -644,16 +644,16 @@ print(plt_accuracy)
 
 
 EPOCH=np.arange(1, EPOCHS+1, 1)
-plt.plot(EPOCH,plt_loss) # (x, y)
+plt.plot(EPOCH,plt_loss) # (x, y).
 plt.xlabel("epochs",fontsize=20)
 plt.ylabel("loss",fontsize=20)
-plt.savefig("Transformer_loss.png")
+plt.savefig("Transformer_4Layers_128dmodel_8head_loss.png")
 plt.close()
 
 plt.plot(EPOCH,plt_accuracy) # (x, y)
 plt.xlabel("epochs",fontsize=20)
 plt.ylabel("acurracy",fontsize=20)
-plt.savefig("Transformer_acurracy.png")
+plt.savefig("Transformer_4Layers_128dmodel_8head_acurracy.png")
 plt.close()
 # ## 給定一個英文句子，輸出預測的中文索引數字序列以及注意權重 dict
 # def evaluate(inp_sentence):
